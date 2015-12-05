@@ -215,7 +215,7 @@ void setColor(int ix, int iy, const vec4& color)
  *  return the delta value, if delta >= 0 and in the view volum, then it's valid intersection
  */
 // TODO: add your ray-sphere intersection routine here.
- bool intersect(const Sphere &sphere, const Ray &ray, const vec4 &start_point, vec4 &intersect_point, float min_dist) {
+ bool intersect(const Sphere &sphere, const Ray &ray, const vec4 &start_point, vec4 &intersect_point, float min_dist, bool init) {
     mat4 transform = mat4();
     mat4 translate = Translate(sphere.pos[0], sphere.pos[1], sphere.pos[2]);
     mat4 scale = Scale(sphere.scale_x, sphere.scale_y, sphere.scale_z);
@@ -238,24 +238,24 @@ void setColor(int ix, int iy, const vec4& color)
         float hit_1 = (-1 * b + sqrt(delta)) / (2 * a);
         float hit_2 = (-1 * b - sqrt(delta)) / (2 * a);
         float hit;
-//        float hit_1_dist = abs(start_point.z + ray.dir.z * hit_1);
-//        float hit_2_dist = abs(start_point.z + ray.dir.z * hit_2);
-//        if(hit_1 < 0 && hit_2 < 0)
-//            return false;
+        float hit_1_dist = abs(start_point.z + ray.dir.z * hit_1);
+        float hit_2_dist = abs(start_point.z + ray.dir.z * hit_2);
+        if(hit_1 < 0 && hit_2 < 0 && init)
+            return false;
 //        else if(hit_1 < 0)
 //            hit = hit_2;
 //        else if(hit_2 < 0)
 //            hit = hit_1;
-//        else if ( hit_1_dist < min_dist && hit_2_dist < min_dist)
-//            return false;
-//        else if(hit_1_dist < min_dist && hit_2_dist > min_dist)
-//            hit = hit_2;
-//        else if(hit_1_dist > min_dist && hit_2_dist < min_dist)
-//            hit = hit_1;
-//        else if(hit_1 > hit_2)
-//            hit = hit_2;
-//        else
-//            hit = hit_1;
+        else if ( hit_1_dist < min_dist && hit_2_dist < min_dist)
+            return false;
+        else if(hit_1_dist < min_dist && hit_2_dist > min_dist)
+            hit = hit_2;
+        else if(hit_1_dist > min_dist && hit_2_dist < min_dist)
+            hit = hit_1;
+        else if(hit_1 > hit_2)
+            hit = hit_2;
+        else
+            hit = hit_1;
 
         if ( hit_1 < min_dist && hit_2 < min_dist)
             return false;
@@ -303,18 +303,18 @@ vec3 lightTrace(const vec4 &point, const Light &light, const Sphere &sphere, con
     bool isIntersect = false;
     for(unsigned i = 0; i < spheres.size(); ++i){
         if(spheres[i].name.compare(sphere.name) != 0) {
-            if(intersect(spheres[i], r_ray, point, intersect_point, 0.0001f))
+            if(intersect(spheres[i], r_ray, point, intersect_point, 0.001f, false))
                 isIntersect = true;
         }
     }
 
     float ir = 0, ig = 0, ib = 0;
-    if(cos_norm_light >= 0 && !isIntersect) {
+    if(cos_norm_light > 0 && !isIntersect) {
         //get the reflect light direction
         vec4 reflect_dir = normalize(light_dir - 2 * cos_norm_light * normal);
         //compute the reflection color for r, g, b separately
-        //vec4 vd =normalize(-1 * view_dir);
-        float rdotv = dot(-1 * view_dir, reflect_dir);
+        vec4 vd = normalize(-1 * view_dir);
+        float rdotv = dot(vd, reflect_dir);
         if(rdotv > 0){
             rdotv = 0;
         }
@@ -360,8 +360,8 @@ vec3 rayTrace(const Ray& ray, int counter)
 
     for(unsigned i = 0; i < spheres.size(); ++i) {
         vec4 intersect_point = vec4();
-        float threshold = counter == 2 ? 1.0f : 0.0001f;
-        if(intersect(spheres[i],ray, ray.origin, intersect_point, threshold)){
+        float threshold = counter == 2 ? 1.0f : 0.001f;
+        if(intersect(spheres[i],ray, ray.origin, intersect_point, threshold, counter == 2)){
             float dist = calDist(ray, intersect_point);
             if(dist < min_dist) {
                 min_dist = dist;
@@ -410,7 +410,6 @@ vec4 getDir(int ix, int iy)
     float ux = -1 * h + h * 2 * ix / (g_height - 1);
     float uy = -1 * w + w * 2 * iy / (g_width - 1);
     vec4 dir;
-    //when do we need to normalize this?
     dir = normalize (vec4(ux, uy, -1 * g_near, 0.0f));
     return dir;
 }
